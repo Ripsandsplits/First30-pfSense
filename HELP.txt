@@ -1,0 +1,30 @@
+pfSense Competition Kit 0.2.0
+
+Run from console menu option 8, in the extracted kit directory.
+Read README.md before the first use on a practice VM.
+
+  sh pf-start.sh audit
+  sh pf-start.sh backup --apply
+  sh pf-start.sh rotate [--user NAME ...] [--defaults-only] [--apply]
+  sh pf-start.sh sessions
+  sh pf-start.sh sessions-kill --tty pts/2 [--apply]
+  sh pf-start.sh sessions-kill --others [--apply]
+  sh pf-start.sh gui-revoke --session SESSION_KEY [--apply]
+  sh pf-start.sh gui-revoke --all [--apply]
+  sh pf-start.sh services
+  sh pf-start.sh service-restart --service SERVICE_KEY [--apply]
+  sh pf-start.sh check --tcp IP_OR_HOST:PORT [--tcp ...]
+  sh pf-start.sh management-stage --interface lan --allow YOUR_IP/32
+       --ports GUI_PORT,SSH_PORT [--timeout 180] [--console-ready --apply]
+  sh pf-start.sh management-enforce --token TOKEN --access-tested --apply
+  sh pf-start.sh management-confirm --token TOKEN --access-tested --apply
+  sh pf-start.sh management-rollback --token TOKEN --apply
+  sh pf-start.sh management-status
+  sh pf-start.sh reboot --console-ready --apply
+
+Default command: audit. Most commands preview unless --apply is present.
+Management trial rules become persistent only after management-confirm.
+The operator's current terminal is always excluded from sessions-kill.
+Reboot is an explicitly selected, disruptive operation.
+TCP checks demonstrate reachability. Verify application content and scoring
+from the required client network as well.
