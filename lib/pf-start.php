@@ -3,6 +3,7 @@ namespace PFStart;
 use RuntimeException;
 use Throwable;
 /* pfSense Competition Kit CLI. PHP 7.4+ and modern pfSense APIs. */
+/* Compatibility hotfix 1: current config_read_file() plus legacy parse_config(). */
 ini_set('display_errors', 'stderr');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 umask(0077);
@@ -13,7 +14,30 @@ require_once(__DIR__ . '/management.php');
 
 function refresh_config() {
     global $config;
-    $config = parse_config(true);
+    if (function_exists('config_read_file')) {
+        // Arguments are use_backup and use_cache, not a force-reload flag.
+        // Refresh from disk without restoring backups or trusting a stale cache.
+        // This API updates the global configuration and returns a BOOLEAN.
+        if (config_read_file(false, false) !== true) {
+            fail('Could not reload config.xml. No backup recovery was requested.');
+        }
+    } elseif (function_exists('parse_config')) {
+        $loaded = parse_config(true);
+        if ($loaded === false) {
+            fail('The legacy configuration loader failed.');
+        }
+        // Older releases return the array; some update global state directly.
+        // Never replace the configuration array with a success boolean.
+        if (is_array($loaded)) {
+            $config = $loaded;
+        }
+    } else {
+        fail('This pfSense release provides neither config_read_file nor parse_config.');
+    }
+    if (!is_array(config_get_path('', null)) ||
+        !is_array(config_get_path('system', null))) {
+        fail('The native loader did not provide a valid configuration array.');
+    }
 }
 
 function rotation_preflight() {
@@ -361,11 +385,12 @@ function main($arguments) {
     if (php_uname('s') !== 'FreeBSD' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
         fail('This entry point requires a root shell on pfSense/FreeBSD.');
     }
-    foreach (['config_get_path', 'local_user_get_groups', 'parse_config'] as $function) {
+    foreach (['config_get_path', 'local_user_get_groups'] as $function) {
         if (!function_exists($function)) {
             fail('This pfSense release is missing ' . $function . '.');
         }
     }
+    refresh_config();
     $pending = pending_transaction();
     if (transaction_open($pending) && time() >= $pending['deadline'] && $command !== 'management-rollback') {
         rollback_management($pending);
@@ -430,6 +455,12 @@ function main($arguments) {
 try {
     if (php_uname('s') !== 'FreeBSD' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
         fail('Run this kit from a root pfSense shell.');
+    }
+    // Initialize native CLI globals before any include can transitively load auth.
+    // auth.inc otherwise pulls in GUI-specific code and warns about this flag.
+    $do_not_include_config_gui_inc = true;
+    if (empty($ARCH)) {
+        $ARCH = php_uname('m');
     }
     foreach (['globals.inc', 'config.inc', 'functions.inc', 'auth.inc', 'service-utils.inc', 'filter.inc'] as $library) {
         require_once('/etc/inc/' . $library);
