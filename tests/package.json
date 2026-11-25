@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node check-cli.mjs && node check-regressions.mjs"
+    "test": "python3 check-menu.py && node check-logs.mjs && node check-cli.mjs && node check-regressions.mjs"
   },
   "dependencies": {
     "@php-wasm/node": "3.1.64",

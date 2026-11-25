@@ -1,12 +1,19 @@
-**pfSense Competition Kit 0.2.1**
+**pfSense Competition Kit 0.3.0**
 
 This kit provides separate commands for an opening audit, local password rotation,
 session removal, staged management restrictions, and individual service restarts.
 Run it from console menu option 8 on a practice pfSense VM first.
 
-The default command saves an audit and a protected configuration backup. Commands
-that change credentials, sessions, services, or rules require `--apply`. Reboot is
-a separately selected command.
+Running `./pf-start.sh` or `sh pf-start.sh` without arguments in a terminal opens
+a numbered menu. Choose a tool, follow its prompts, and press Enter after it
+finishes to return to the menu. Select `0` to exit. The menu lists every tool,
+including a management-access submenu and a browser for saved logs and reports.
+`sh pf-start.sh menu` explicitly opens the same menu.
+
+Tools that change credentials, sessions, services, or rules show a preview and
+prompt before applying it. Reboot requires typing `REBOOT`. Existing command-line
+options still work. With redirected input/output, no arguments retain the audit
+default; use an explicit command such as `audit` in scripts or pipelines.
 
 **1. Download the kit and run the opening audit**
 
@@ -16,8 +23,7 @@ If Git is already available on the practice firewall, clone this repository:
 cd /root
 git clone https://github.com/Ripsandsplits/First30-pfSense.git
 cd First30-pfSense
-sh pf-start.sh help
-sh pf-start.sh audit
+./pf-start.sh
 ```
 
 For an existing clone, update it with `git pull --ff-only origin main` from
@@ -28,6 +34,40 @@ Keep the whole directory together. The launcher loads the PHP files under `lib`.
 It requires root/UID 0, the pfSense PHP CLI, and current configuration APIs such
 as `config_get_path()`. Optional commands also check their native service/session
 APIs. A missing API produces an error that identifies the required adaptation.
+
+Choose **1** for the opening audit, or run `sh pf-start.sh audit` directly. It
+saves an audit report and a protected configuration backup. Menu actions run
+through the same launcher and native checks as their command-line equivalents.
+The menu and log browser hold no operation lock while waiting for input, so the
+management rollback watchdog can still run. Open a fresh SSH login for the
+management confirmation step, as required by the existing workflow.
+
+**View saved logs and reports**
+
+Select **11** from the main menu. A numbered list shows the newest files first,
+including audit reports, action logs, native-warning diagnostics, management
+watchdog logs, transaction state, and other saved JSON/log/text reports under
+`/conf/pf-start`. Choose a number to view it. Use `n`/`p` for the next/previous list
+page, `r` to refresh, and `0` to return. In the viewer, use arrows or Page Up/Page
+Down to scroll and `q` to return. Small files may fit on one screen and return
+immediately. If `less` is unavailable, a simple paged viewer is used instead.
+
+The viewer reads files without editing them. Credential recovery files such as
+`config.xml` and `master.passwd.reference` are excluded; symbolic links and files
+owned by another user are skipped. Native system logs outside `/conf/pf-start`
+remain available through the pfSense GUI. Log viewing works without loading the
+native configuration APIs, including when an audit cannot start.
+
+The same browser and files are available directly:
+
+```sh
+sh pf-start.sh logs
+sh pf-start.sh logs --list
+sh pf-start.sh logs --file LOG_KEY
+```
+
+Use a key from `logs --list` for `--file`. When redirected, `logs` lists files and
+`logs --file LOG_KEY` prints the selected file without interactive paging.
 
 The audit includes privileged accounts and why they were selected, effective
 local group privileges, SSH key-line digests, management settings, interfaces,

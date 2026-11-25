@@ -8,7 +8,7 @@ import { loadNodeRuntime } from '@php-wasm/node';
 const lib = new URL('../lib/', import.meta.url);
 const php = new PHP(await loadNodeRuntime('8.5', { emscriptenOptions: { processId: 619 } }));
 for (const p of ['/kit/lib','/etc/inc','/conf','/tmp','/root','/usr/local/www','/usr/local/lib','/sessions']) php.mkdirTree(p);
-for (const name of ['accounts.php','core.php','diagnostics.php','management.php','sessions.php','pf-start.php']) {
+for (const name of ['accounts.php','core.php','diagnostics.php','logs.php','management.php','sessions.php','pf-start.php']) {
   let source = fs.readFileSync(new URL(name, lib), 'utf8');
   if (name === 'core.php') source = source.replace('function run_command(', 'function unused_native_run_command(');
   php.writeFile('/kit/lib/' + name, source);

@@ -1,8 +1,10 @@
-pfSense Competition Kit 0.2.1
+pfSense Competition Kit 0.3.0
 
 Run from console menu option 8, in the extracted kit directory.
 Read README.md before the first use on a practice VM.
 
+  ./pf-start.sh
+  sh pf-start.sh menu
   sh pf-start.sh audit
   sh pf-start.sh backup --apply
   sh pf-start.sh rotate [--user NAME ...] [--defaults-only] [--apply]
@@ -20,9 +22,13 @@ Read README.md before the first use on a practice VM.
   sh pf-start.sh management-confirm --token TOKEN --access-tested --apply
   sh pf-start.sh management-rollback --token TOKEN --apply
   sh pf-start.sh management-status
+  sh pf-start.sh logs [--list | --file LOG_KEY]
   sh pf-start.sh reboot --console-ready --apply
 
-Default command: audit. Most commands preview unless --apply is present.
+No arguments in a terminal: interactive menu. Otherwise the default is audit.
+Select 11 in the menu to browse saved logs/reports; q leaves the log viewer.
+Use logs --list to list file keys without opening the interactive browser.
+Most commands preview unless --apply is present; the menu prompts to apply.
 Management trial rules become persistent only after management-confirm.
 The operator's current terminal is always excluded from sessions-kill.
 Reboot is an explicitly selected, disruptive operation.

@@ -1,4 +1,4 @@
-Run these checks on a Linux workstation (or WSL) with Node.js 20 or newer:
+Run these checks on a Linux workstation (or WSL) with Node.js 20 or newer and Python 3:
 
 ```sh
 cd tests
@@ -22,6 +22,15 @@ deduplication, visible kit warnings, and error-handler restoration.
 `check-regressions.mjs` covers account targeting and credential verification,
 session selection and removal, service identity, management restrictions,
 confirmation, rollback, and concurrent saved-configuration edits.
+
+`check-menu.py` drives the actual shell menu against a recording backend and
+checks command arguments, previews, cancellations, errors, and submenu routing.
+It also opens the launcher in a pseudo-terminal with simulated host checks to
+verify automatic menu startup and operation-lock behavior.
+
+`check-logs.mjs` checks report discovery, newest-first ordering, exclusion of
+credential backups and symlinks, file selection, paging, and read-only operation
+without any native pfSense libraries present.
 
 Passing these tests does not establish compatibility with every pfSense release.
 Validate native service status, PHP-FPM storage, interactive credential prompts,

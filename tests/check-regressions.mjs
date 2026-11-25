@@ -11,7 +11,7 @@ for (const d of ['lib','pages','sessions','etc','state']) fs.mkdirSync(root+'/'+
 const php = new PHP(await loadNodeRuntime('8.5',{emscriptenOptions:{processId:502}}));
 php.mkdirTree(root);
 await php.mount(root,createNodeFsMountHandler(root));
-for(const name of ['accounts.php','core.php','diagnostics.php','sessions.php','management.php','pf-start.php']) {
+for(const name of ['accounts.php','core.php','diagnostics.php','logs.php','sessions.php','management.php','pf-start.php']) {
  let source=fs.readFileSync(path.resolve(new URL('../lib/',import.meta.url).pathname)+'/'+name,'utf8');
  if(name==='pf-start.php') source=source.split("\ntry {\n    if (php_uname")[0];
  source=source.replaceAll('/conf/pf-start',root+'/state')

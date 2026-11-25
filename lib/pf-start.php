@@ -10,6 +10,7 @@ umask(0077);
 require_once(__DIR__ . '/accounts.php');
 require_once(__DIR__ . '/core.php');
 require_once(__DIR__ . '/diagnostics.php');
+require_once(__DIR__ . '/logs.php');
 require_once(__DIR__ . '/sessions.php');
 require_once(__DIR__ . '/management.php');
 
@@ -464,6 +465,10 @@ function main($arguments) {
 try {
     if (php_uname('s') !== 'FreeBSD' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
         fail('Run this kit from a root pfSense shell.');
+    }
+    if (($argv[1] ?? '') === 'logs') {
+        // Viewing evidence never loads native libraries or triggers trial rollback.
+        exit(logs_main(array_slice($argv, 2)));
     }
     // Initialize native CLI globals before any include can transitively load auth.
     // auth.inc otherwise pulls in GUI-specific code and warns about this flag.
