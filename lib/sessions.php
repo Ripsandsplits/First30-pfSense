@@ -64,20 +64,28 @@ function terminal_targets($snapshot, $requested, $others) {
 }
 
 function gui_session_directory() {
-    if (!function_exists('phpsession_begin') || !function_exists('phpsession_end')) {
-        fail('This GUI session manager is unsupported.');
+    // Inspect settings only: starting/committing a browser session from this CLI
+    // fails after output and can create a spurious GUI-session file.
+    $handler = ini_get('session.save_handler');
+    $path = session_save_path();
+    $fpmConfig = '/usr/local/lib/php-fpm.conf';
+    if (!is_file($fpmConfig)) {
+        fail('Native PHP-FPM configuration is missing; verify GUI session storage manually.');
     }
-    ob_start();
-    try {
-        phpsession_begin();
-        $handler = ini_get('session.save_handler');
-        $path = session_save_path();
-        phpsession_end(true);
-    } finally {
-        ob_end_clean();
+    $settings = file_get_contents($fpmConfig);
+    if ($settings === false || preg_match('/^\s*include\s*=/mi', $settings)) {
+        fail('Custom or unreadable PHP-FPM includes require manual session-storage verification.');
+    }
+    // The native webConfigurator pool shares php.ini. Refuse custom pool
+    // session overrides rather than guessing which storage can be revoked.
+    if (preg_match('/^\s*php_(?:admin_)?value\s*\[\s*(?:session\.(?:save_path|save_handler)|sys_temp_dir)\s*\]/mi', $settings)) {
+        fail('PHP-FPM session-storage overrides require manual verification.');
     }
     if ($handler !== 'files' || strpos($path, ';') !== false) {
         fail('Custom GUI session storage requires version-specific handling.');
+    }
+    if ($path === '' && ini_get('sys_temp_dir') === '' && getenv('TMPDIR')) {
+        fail('A CLI-only TMPDIR makes the default GUI session directory ambiguous.');
     }
     $path = realpath($path === '' ? sys_get_temp_dir() : $path);
     if ($path === false || $path === '/' || !is_writable($path)) {

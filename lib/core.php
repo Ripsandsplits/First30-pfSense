@@ -3,7 +3,7 @@ namespace PFStart;
 use RuntimeException;
 use Throwable;
 /* Shared input validation, local evidence storage, and rule construction. */
-const PF_START_VERSION = '0.2.0';
+const PF_START_VERSION = '0.2.1';
 const PF_START_STATE = '/conf/pf-start';
 
 function options_for($arguments, $allowed) {

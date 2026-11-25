@@ -1,4 +1,4 @@
-pfSense Competition Kit 0.2.0
+pfSense Competition Kit 0.2.1
 
 Run from console menu option 8, in the extracted kit directory.
 Read README.md before the first use on a practice VM.

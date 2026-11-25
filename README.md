@@ -1,4 +1,4 @@
-**pfSense Competition Kit 0.2.0**
+**pfSense Competition Kit 0.2.1**
 
 This kit provides separate commands for an opening audit, local password rotation,
 session removal, staged management restrictions, and individual service restarts.
@@ -8,18 +8,21 @@ The default command saves an audit and a protected configuration backup. Command
 that change credentials, sessions, services, or rules require `--apply`. Reboot is
 a separately selected command.
 
-**1. Extract the kit and run the opening audit**
+**1. Download the kit and run the opening audit**
 
-Copy the ZIP to the firewall using an event-approved transfer method. Extract it
-under `/root` using the FreeBSD archive utility.
+If Git is already available on the practice firewall, clone this repository:
 
 ```sh
 cd /root
-tar -xf pfsense-competition-kit-0.2.0.zip
-cd pfsense-competition-kit
+git clone https://github.com/Ripsandsplits/First30-pfSense.git
+cd First30-pfSense
 sh pf-start.sh help
 sh pf-start.sh audit
 ```
+
+For an existing clone, update it with `git pull --ff-only origin main` from
+`/root/First30-pfSense`. If you transfer an archive instead, use an event-approved
+transfer method and extract the entire kit under `/root` with `tar -xf FILE`.
 
 Keep the whole directory together. The launcher loads the PHP files under `lib`.
 It requires root/UID 0, the pfSense PHP CLI, and current configuration APIs such
@@ -40,6 +43,20 @@ contains sensitive credentials, hashes, certificates, and keys. Keep it inside
 the approved competition environment. GUI session reports show opaque hashes
 of session filenames, rather than usable session-cookie identifiers. The saved
 session-file list can include anonymous browser sessions.
+
+Version 0.2.1 addresses the audit warnings reported on pfSense CE 2.9.2. The
+configuration loads before native authentication indexing, and groups without a
+saved member list are handled directly. GUI-session inspection reads the native
+PHP configuration without starting or committing a browser session. The launcher
+uses `/usr/local/etc/php.ini`, matching the native PHP-FPM startup configuration.
+
+Warnings from native pfSense libraries during startup, configuration refresh, or
+service inventory are counted and saved in a private `native-warnings-*.json`
+file. The audit records its path in `native_warnings.details_file` and flags the
+affected inventory for review. Other commands save those details under
+`/conf/pf-start/diagnostics`. These warnings can indicate incomplete inventory;
+compare the affected entries with the GUI and application checks. The kit's own
+warnings and fatal errors remain visible. No pfSense system files are edited.
 
 Each run also saves `master.passwd.reference` as a protected reference for OS-only
 accounts. It contains password hashes. Use the console and native account tools
@@ -114,7 +131,10 @@ sh pf-start.sh gui-revoke --all --apply
 This briefly stops PHP-FPM, removes the selected saved PHP session files, and
 restarts PHP-FPM if it was running. Other browser requests can be interrupted.
 All-session revocation affects every file-backed PHP session in that GUI session
-directory. Custom session handlers or nested storage layouts cause an error.
+directory. Custom session handlers, nested storage layouts, PHP-FPM session
+overrides, or included pool configurations require manual verification. An audit
+records this limitation in `gui_session_warning`; revocation stops before
+disrupting PHP-FPM or deleting sessions.
 The kit restores PHP-FPM through the native restart script even if deletion fails.
 If the GUI recovery fails, use the console's Restart PHP-FPM option.
 
@@ -244,10 +264,13 @@ and your shell session. Password rotation and session revocation do not invoke i
 
 **Validation and scope**
 
-Shell syntax and PHP parsing are checked. Sixty automated regression checks run under
-PHP 8.3 in WebAssembly with mocked pfSense account, configuration, service, and
-filter APIs. The tests cover privilege inheritance, account selection, credential
-verification, CIDR validation, operator-session protection, management previews,
+Shell syntax and PHP parsing are checked. Automated regression checks run under
+PHP 8.5 in WebAssembly with simulated pfSense account, configuration, service, and
+filter APIs. Run `npm ci` then `npm test` from `tests` on Linux or WSL with Node.js;
+see [tests/README.md](tests/README.md). The tests cover startup loader behavior,
+native-warning capture, session inspection without session creation, fail-safe
+handling of ambiguous session storage, privilege inheritance, account selection,
+credential verification, CIDR validation, operator-session protection, management previews,
 staging, enforcement, confirmation, rollback, concurrent saved-configuration edits,
 service targeting, and saved-session removal.
 
@@ -270,5 +293,8 @@ approval before competition use.
 - State-table behavior after rule changes. https://docs.netgate.com/pfsense/en/latest/troubleshooting/firewall.html
 - Configuration storage and dynamically generated runtime files. https://docs.netgate.com/pfsense/en/latest/config/xml-configuration-file.html
 - Native account logic. https://github.com/pfsense/pfsense/blob/master/src/etc/inc/auth.inc
+- Native session helper, reviewed at a pinned source revision. https://github.com/pfsense/pfsense/blob/9363ac5b8651a1c7a333180425ce7719070f95f9/src/etc/inc/phpsessionmanager.inc
+- Native PHP configuration generation and warning levels. https://github.com/pfsense/pfsense/blob/9363ac5b8651a1c7a333180425ce7719070f95f9/src/etc/rc.php_ini_setup
+- Native PHP-FPM startup configuration. https://github.com/pfsense/pfsense/blob/9363ac5b8651a1c7a333180425ce7719070f95f9/src/etc/rc.php-fpm_restart
 - Native filter reload implementation. https://github.com/pfsense/pfsense/blob/master/src/etc/inc/filter.inc
 - Published national competition rules. https://nationalccdc.org/rules.html

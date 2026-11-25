@@ -9,6 +9,7 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 umask(0077);
 require_once(__DIR__ . '/accounts.php');
 require_once(__DIR__ . '/core.php');
+require_once(__DIR__ . '/diagnostics.php');
 require_once(__DIR__ . '/sessions.php');
 require_once(__DIR__ . '/management.php');
 
@@ -102,32 +103,34 @@ function rotate_accounts($options) {
 }
 
 function services_inventory() {
-    require_once('/etc/inc/service-utils.inc');
-    foreach (['get_services', 'get_service_status', 'service_control_restart'] as $function) {
-        if (!function_exists($function)) {
-            fail('Missing service API ' . $function);
-        }
-    }
-    $result = [];
-    foreach ((array)get_services() as $service) {
-        if (empty($service['name'])) {
-            continue;
-        }
-        $identity = [];
-        foreach (['name', 'id', 'vpnid', 'zone', 'type'] as $field) {
-            if (isset($service[$field])) {
-                $identity[$field] = $service[$field];
+    return native_call('services', function () {
+        require_once('/etc/inc/service-utils.inc');
+        foreach (['get_services', 'get_service_status', 'service_control_restart'] as $function) {
+            if (!function_exists($function)) {
+                fail('Missing service API ' . $function);
             }
         }
-        $key = substr(hash('sha256', json_encode($identity)), 0, 16);
-        if (isset($result[$key])) {
-            fail('Ambiguous service identity. Use the pfSense GUI for this service.');
+        $result = [];
+        foreach ((array)get_services() as $service) {
+            if (empty($service['name'])) {
+                continue;
+            }
+            $identity = [];
+            foreach (['name', 'id', 'vpnid', 'zone', 'type'] as $field) {
+                if (isset($service[$field])) {
+                    $identity[$field] = $service[$field];
+                }
+            }
+            $key = substr(hash('sha256', json_encode($identity)), 0, 16);
+            if (isset($result[$key])) {
+                fail('Ambiguous service identity. Use the pfSense GUI for this service.');
+            }
+            $result[$key] = ['key' => $key, 'name' => $service['name'],
+                'description' => $service['description'] ?? '',
+                'running' => (bool)get_service_status($service), 'native' => $service];
         }
-        $result[$key] = ['key' => $key, 'name' => $service['name'],
-            'description' => $service['description'] ?? '',
-            'running' => (bool)get_service_status($service), 'native' => $service];
-    }
-    return $result;
+        return $result;
+    });
 }
 
 function services_public($services) {
@@ -331,6 +334,9 @@ function audit_firewall() {
     } catch (Throwable $error) {
         $report['service_warning'] = $error->getMessage();
     }
+    if (native_warning_summary()['occurrences'] > 0) {
+        $report['native_inventory_note'] = 'Native libraries reported warnings. Review diagnostics before relying on affected inventory.';
+    }
     $report['sessions'] = terminal_snapshot();
     try {
         $report['gui_sessions'] = array_values(gui_sessions(gui_session_directory()));
@@ -354,10 +360,13 @@ function audit_firewall() {
         'after_boot_shell_command_present' => (bool)config_get_path('system/afterbootupshellcmd'),
         'review' => 'Inspect cron, Shellcmd, sudo, package configuration, rule history, and authorized keys in the GUI.'
     ];
+    $report['native_warnings'] = native_warning_summary();
+    $report['native_warnings']['details_file'] = save_native_warnings($directory);
     save_json($directory . '/audit.json', $report);
     echo 'Audit report: ', $directory, "/audit.json\n";
     output_json(['accounts' => $report['accounts'], 'management' => $report['management'],
-        'ssh' => $report['ssh'], 'configuration_review' => $report['configuration_review']]);
+        'ssh' => $report['ssh'], 'configuration_review' => $report['configuration_review'],
+        'native_warnings' => $report['native_warnings']]);
     echo "Compare required services from the competition packet with live scoring and client tests.\n";
 }
 
@@ -385,12 +394,12 @@ function main($arguments) {
     if (php_uname('s') !== 'FreeBSD' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
         fail('This entry point requires a root shell on pfSense/FreeBSD.');
     }
-    foreach (['config_get_path', 'local_user_get_groups'] as $function) {
+    foreach (['config_get_path'] as $function) {
         if (!function_exists($function)) {
             fail('This pfSense release is missing ' . $function . '.');
         }
     }
-    refresh_config();
+    native_call('configuration refresh', function () { refresh_config(); });
     $pending = pending_transaction();
     if (transaction_open($pending) && time() >= $pending['deadline'] && $command !== 'management-rollback') {
         rollback_management($pending);
@@ -462,12 +471,31 @@ try {
     if (empty($ARCH)) {
         $ARCH = php_uname('m');
     }
-    foreach (['globals.inc', 'config.inc', 'functions.inc', 'auth.inc', 'service-utils.inc', 'filter.inc'] as $library) {
-        require_once('/etc/inc/' . $library);
+    native_diagnostics_begin('native startup');
+    try {
+        require_once('/etc/inc/globals.inc');
+        if (is_file('/etc/inc/config.lib.inc')) {
+            require_once('/etc/inc/config.lib.inc');
+            if (function_exists('config_read_file')) {
+                // Load real users before transitive auth.inc initialization.
+                refresh_config();
+            }
+        }
+        foreach (['config.inc', 'functions.inc', 'auth.inc', 'service-utils.inc', 'filter.inc'] as $library) {
+            require_once('/etc/inc/' . $library);
+        }
+    } finally {
+        native_diagnostics_end();
     }
-    exit(main(array_slice($argv, 1)));
+    $status = main(array_slice($argv, 1));
+    report_native_warnings();
+    exit($status);
 } catch (Throwable $error) {
     fwrite(STDERR, 'ERROR: ' . $error->getMessage() . "\n");
+    try { report_native_warnings(); }
+    catch (Throwable $diagnosticError) {
+        fwrite(STDERR, 'Could not save native warning details: ' . $diagnosticError->getMessage() . "\n");
+    }
     fwrite(STDERR, "Review /conf/pf-start/actions.jsonl and the console. Earlier completed changes remain in effect.\n");
     exit(1);
 }

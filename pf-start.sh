@@ -1,5 +1,5 @@
 #!/bin/sh
-# pfSense Competition Kit 0.2.0. Use console menu option 8.
+# pfSense Competition Kit 0.2.1. Use console menu option 8.
 # Each mutating operation requires --apply. The default command is audit.
 set -eu
 set +x
@@ -30,7 +30,8 @@ esac
 [ "$(uname -s)" = FreeBSD ] || { echo 'Requires pfSense on FreeBSD.' >&2; exit 1; }
 [ "$(id -u)" -eq 0 ] || { echo 'Run as admin/root (UID 0).' >&2; exit 1; }
 [ -x /usr/local/bin/php ] || { echo 'The PHP CLI is missing.' >&2; exit 1; }
+[ -f /usr/local/etc/php.ini ] || { echo 'The native PHP configuration is missing.' >&2; exit 1; }
 [ -f /etc/inc/config.inc ] || { echo 'The pfSense libraries are missing.' >&2; exit 1; }
 # One kit operation runs at a time, including the rollback watchdog.
 /usr/bin/lockf -k -t 0 /var/run/pf-start.lock \
-    /usr/local/bin/php -f "$kit_dir/lib/pf-start.php" -- "$@"
+    /usr/local/bin/php -c /usr/local/etc/php.ini -f "$kit_dir/lib/pf-start.php" -- "$@"

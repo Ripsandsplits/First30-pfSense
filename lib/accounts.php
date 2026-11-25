@@ -69,6 +69,21 @@ function root_page_privileges() {
     return array_unique($privileges);
 }
 
+function configured_user_groups($user, $groups) {
+    // pfSense's virtual all group applies even if its saved member list is absent.
+    $memberships = ['all'];
+    foreach ($groups as $group) {
+        $members = $group['member'] ?? [];
+        if (is_array($members) && isset($group['name']) &&
+            in_array((string)($user['uid'] ?? ''), array_map('strval', $members), true)) {
+            $memberships[] = $group['name'];
+        }
+    }
+    $memberships = array_values(array_unique($memberships));
+    sort($memberships);
+    return $memberships;
+}
+
 function account_inventory($requested = []) {
     $osUsers = system_users();
     $groups = config_get_path('system/group', []);
@@ -86,7 +101,7 @@ function account_inventory($requested = []) {
     foreach (config_get_path('system/user', []) as $user) {
         $name = username_ok((string)($user['name'] ?? ''));
         $known[$name] = true;
-        $memberships = local_user_get_groups($user, true);
+        $memberships = configured_user_groups($user, $groups);
         $privileges = (array)($user['priv'] ?? []);
         foreach ($groups as $group) {
             if (in_array($group['name'] ?? '', $memberships, true)) {
